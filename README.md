@@ -83,3 +83,26 @@ The Game Dev track has `status: "tba"` with `clubs: ["Club TBA"]`. The card is s
 
 - **No destructive DB operations** are run from the app outside of `withdrawFromTrack`, which is scoped to the calling user's own row and gated behind a confirm-before-delete UI control.
 - No other auth methods are supported. The sign-in page only exposes the DevClub button.
+
+## CI/CD (GitHub Actions → Azure VM)
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push/PR to `main`:
+
+1. **check** — `npm ci`, lint, typecheck, production build (placeholder env vars).
+2. **deploy** — on push to `main` only, rsyncs to the VM and runs the same steps as [`deploy.sh`](deploy.sh) (build on-server using `/etc/csot-site/env`, restart `csot-site`).
+
+### One-time GitHub setup
+
+In the repo → **Settings → Secrets and variables → Actions**, add:
+
+| Secret | Value |
+| ------ | ----- |
+| `CSOT_SSH_PRIVATE_KEY` | Full contents of the VM SSH private key (`myvm_key.pem`) |
+| `CSOT_SSH_HOST` | `20.244.42.13` |
+| `CSOT_SSH_USER` | `azureuser` |
+
+Optional variable: `CSOT_SITE_URL` (defaults to `https://csot.devclub.in` in `deploy.sh`).
+
+The deploy job uses the `production` environment so you can add required reviewers or branch rules later.
+
+Manual deploy from your machine still works: `./deploy.sh` (uses the `csot-vm` SSH alias).

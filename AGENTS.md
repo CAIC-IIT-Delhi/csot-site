@@ -137,9 +137,11 @@ ssh csot-vm 'sudo cp -a /tmp/csot-sync/. /opt/csot-site/ \
 
   `/etc/csot-site/env` sets `NODE_ENV=production`, so plain `npm install` skips devDependencies (`@tailwindcss/postcss`, etc.) and the build fails — always use `npm install --include=dev` before `npm run build`.
 
+**CI/CD:** `.github/workflows/ci.yml` lint/typechecks/builds on every PR; merges to `main` auto-deploy via `./deploy.sh` over SSH (secrets `CSOT_SSH_PRIVATE_KEY`, `CSOT_SSH_HOST`, `CSOT_SSH_USER`). Production env stays on the VM — nothing sensitive in GitHub except the deploy key.
+
 ## Before you commit
 
-- Deploy to production (see **Deployment** above) after any change that should be live.
+- Merges to `main` deploy automatically via GitHub Actions; for urgent fixes you can still run `./deploy.sh` locally.
 - `npx tsc --noEmit` clean.
 - `npm run lint` clean.
 - New form fields: add to Zod schema → action → form component → display sites in this order.

@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Production build
+        run: npm run build
+        env:
+          # Placeholders — real secrets live on the VM at /etc/csot-site/env.
+          AUTH_SECRET: ci-build-placeholder-secret-min-32-chars-long
+          AUTH_URL: http://localhost:3000
+          DEVCLUB_CLIENT_ID: ci-placeholder
+          DEVCLUB_CLIENT_SECRET: ci-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: check
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          CSOT_SSH_PRIVATE_KEY: ${{ secrets.CSOT_SSH_PRIVATE_KEY }}
+          CSOT_SSH_HOST: ${{ secrets.CSOT_SSH_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$CSOT_SSH_PRIVATE_KEY" > ~/.ssh/csot_deploy
+          chmod 600 ~/.ssh/csot_deploy
+          ssh-keyscan -H "$CSOT_SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy to csot-vm
+        env:
+          CSOT_SSH_HOST: ${{ secrets.CSOT_SSH_HOST }}
+          CSOT_SSH_USER: ${{ secrets.CSOT_SSH_USER }}
+          CSOT_SSH_KEY: ~/.ssh/csot_deploy
+        run: ./deploy.sh
