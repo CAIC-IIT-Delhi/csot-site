@@ -35,7 +35,7 @@ export const TRACKS: Track[] = [
     name: "GenAI / Agentic",
     clubs: ["ARIES"],
     tagline:
-      "Build something that reasons, plans, and calls tools. Start from a prompt, end with a working agent.",
+      "CI/CD test Build something that reasons, plans, and calls tools. Start from a prompt, end with a working agent.",
     about:
       "A hands-on introduction to large language models and agentic systems. You will go from basic prompting to retrieval augmented generation to tool-using agents that take real actions. We will use open APIs and small models, no GPU required.",
     status: "open",
