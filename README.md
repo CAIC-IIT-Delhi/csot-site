@@ -88,7 +88,7 @@ The Game Dev track has `status: "tba"` with `clubs: ["Club TBA"]`. The card is s
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push/PR to `main`:
 
-1. **check** — `npm ci`, lint, typecheck, production build (placeholder env vars).
+1. **check** — `npm ci`, lint, typecheck.
 2. **deploy** — on push to `main` only, rsyncs to the VM and runs the same steps as [`deploy.sh`](deploy.sh) (build on-server using `/etc/csot-site/env`, restart `csot-site`).
 
 ### One-time GitHub setup

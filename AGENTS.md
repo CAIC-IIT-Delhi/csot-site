@@ -137,7 +137,7 @@ ssh csot-vm 'sudo cp -a /tmp/csot-sync/. /opt/csot-site/ \
 
   `/etc/csot-site/env` sets `NODE_ENV=production`, so plain `npm install` skips devDependencies (`@tailwindcss/postcss`, etc.) and the build fails — always use `npm install --include=dev` before `npm run build`.
 
-**CI/CD:** `.github/workflows/ci.yml` lint/typechecks/builds on every PR; merges to `main` auto-deploy via `./deploy.sh` over SSH (secrets `CSOT_SSH_PRIVATE_KEY`, `CSOT_SSH_HOST`, `CSOT_SSH_USER`). Production env stays on the VM — nothing sensitive in GitHub except the deploy key.
+**CI/CD:** `.github/workflows/ci.yml` lint/typechecks on every PR; merges to `main` auto-deploy via `./deploy.sh` over SSH (secrets `CSOT_SSH_PRIVATE_KEY`, `CSOT_SSH_HOST`, `CSOT_SSH_USER`). Production build runs on the VM only — not in GitHub Actions.
 
 ## Before you commit
 

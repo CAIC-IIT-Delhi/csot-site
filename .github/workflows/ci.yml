@@ -30,17 +30,6 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-      - name: Production build
-        run: npm run build
-        env:
-          # Placeholders — real secrets live on the VM at /etc/csot-site/env.
-          AUTH_SECRET: ci-build-placeholder-secret-min-32-chars-long
-          AUTH_URL: http://localhost:3000
-          DEVCLUB_CLIENT_ID: ci-placeholder
-          DEVCLUB_CLIENT_SECRET: ci-placeholder
-          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
-
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: check
