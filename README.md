@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CSoT'26 — CAIC Summer of Tech
 
-## Getting Started
+Registration site for the 2026 edition of CAIC Summer of Tech at IIT Delhi.
 
-First, run the development server:
+- Frontend & backend: Next.js 16 (App Router, React 19), TypeScript, Tailwind v4.
+- Auth: Auth.js v5 with a custom OIDC provider against DevClub IITD. No other login methods.
+- Data: Supabase (Postgres). Two tables, both RLS-enabled (`csot_users`, `csot_registrations`).
+- Design: built against the impeccable design skill. See [PRODUCT.md](PRODUCT.md) and [DESIGN.md](DESIGN.md) for the design system and tone notes.
+
+## Setup
 
 ```bash
+cp .env.example .env.local   # then fill in values
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Required env vars (see `.env.example` for full descriptions):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Variable                       | Where to get it                                                                  |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| `AUTH_SECRET`                  | `npx auth secret` or `openssl rand -base64 32`                                   |
+| `AUTH_URL`                     | `http://localhost:3000` in dev, your production URL in prod                      |
+| `DEVCLUB_CLIENT_ID`            | `https://auth.devclub.in` developer portal (registered client)                   |
+| `DEVCLUB_CLIENT_SECRET`        | same                                                                             |
+| `NEXT_PUBLIC_SUPABASE_URL`     | Supabase Project Settings → API                                                  |
+| `SUPABASE_SERVICE_ROLE_KEY`    | Supabase Project Settings → API → **Service role** (secret, never client-side)   |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The registered DevClub redirect URIs already include `https://csot.devclub.in/api/auth/callback/devclub`, which is what Auth.js produces for a provider whose `id` is `"devclub"`. For local development you will need to register `http://localhost:3000/api/auth/callback/devclub` as an additional redirect URI on the client (or use a tunnel).
 
-## Learn More
+## Repository layout
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/app/          Routes (landing, dashboard, tracks, auth API)
+src/components/   UI components
+src/lib/          Tracks catalogue, validations, leaderboards, Supabase client
+src/auth.ts       Auth.js config
+src/proxy.ts      Auth + onboarding gate (Next.js 16 proxy)
+supabase/migrations/   Postgres schema (applied via Supabase)
+scripts/          Leaderboard credential generator
+public/clubs/     Club logo assets
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Agent and deployment notes: [AGENTS.md](AGENTS.md). Design system: [PRODUCT.md](PRODUCT.md), [DESIGN.md](DESIGN.md).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Database
 
-## Deploy on Vercel
+Schema lives in `supabase/migrations/` (project `mbazfoxcruoacstnhwdh`). Two tables, both new, namespaced with `csot_`:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `csot_users` — one row per signed-in IIT Delhi user (`kerberos` is the unique key).
+- `csot_registrations` — one row per `(user, track)`, with a `unique (user_id, track_slug)` constraint so re-submits update in place.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Both tables have RLS enabled with no policies; the app reads and writes them via the service-role key from Server Actions only. No browser code ever sees the service key.
+
+The track catalogue (`src/lib/tracks.ts`) is intentionally in code, not in the database — the set is small, fixed, and gives copywriting full version control.
+
+## Routes
+
+| Route                          | What it does                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------ |
+| `/`                            | Landing page: hero, four-pillar "what to expect", 14-track grid.               |
+| `/tracks/[slug]/register`      | Per-track context + registration form. Edit-in-place if already registered.    |
+| `/dashboard`                   | The user's registrations with quick edit, plus links to remaining open tracks. |
+| `/signin`                      | Single CTA to start the DevClub OIDC flow.                                     |
+| `/api/auth/[...nextauth]`      | Auth.js handler.                                                               |
+
+The Next.js 16 Proxy (`src/proxy.ts`) protects `/dashboard` and `/tracks/:slug/register`.
+
+## Adding track & platform links later
+
+`src/lib/tracks.ts` has optional `trackUrl` and `platformUrl` fields per track. Both are gated behind registration — they never appear on public pages.
+
+- `trackUrl` → primary "Launch track" button (typically the track's GitHub repo or syllabus). When unset, a disabled placeholder is shown so the layout stays stable.
+- `platformUrl` → secondary "Launch platform" button for tracks with a dedicated site (e.g. `csot-low-latency.devclub.in`). Tracks without a platform simply omit the button.
+
+Filling these in surfaces the buttons on `/tracks/[slug]/register` (after registration) and on `/dashboard`; no schema changes needed.
+
+## Game Dev (Coming Soon)
+
+The Game Dev track has `status: "tba"` with `clubs: ["Club TBA"]`. The card is shown but dimmed, registration is disabled, and the track page surfaces a clear "opening soon" state. Flip `status` to `"open"` and update `clubs` once the lead is confirmed.
+
+## Operational notes
+
+- **No destructive DB operations** are run from the app outside of `withdrawFromTrack`, which is scoped to the calling user's own row and gated behind a confirm-before-delete UI control.
+- No other auth methods are supported. The sign-in page only exposes the DevClub button.
