@@ -61,7 +61,7 @@ fi
 echo "→ Building and restarting on ${SSH_TARGET}"
 "${SSH_BASE[@]}" "${SSH_TARGET}" "sudo cp -a ${REMOTE_SYNC_DIR}/. ${REMOTE_APP_DIR}/ \
   && sudo chown -R ${APP_USER}:${APP_USER} ${REMOTE_APP_DIR} \
-  && sudo -u ${APP_USER} bash -c 'cd ${REMOTE_APP_DIR} && set -a && source /etc/csot-site/env && set +a && npm install --include=dev && npm run build' \
+  && sudo bash -c 'set -a && source /etc/csot-site/env && set +a && cd ${REMOTE_APP_DIR} && sudo -E -u ${APP_USER} npm install --include=dev && sudo -E -u ${APP_USER} npm run build' \
   && sudo systemctl restart csot-site \
   && systemctl is-active csot-site"
 
