@@ -9,6 +9,7 @@ import {
   exchangeGoogleDriveCode,
 } from "@/lib/track-submissions/google-drive-oauth";
 import { saveTrackGoogleDriveConnection } from "@/lib/track-submissions/google-drive-store";
+import { siteUrl } from "@/lib/site-origin";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -18,10 +19,7 @@ export async function GET(request: Request) {
 
   if (oauthError) {
     return NextResponse.redirect(
-      new URL(
-        `/tracks?drive_error=${encodeURIComponent(oauthError)}`,
-        request.url,
-      ),
+      siteUrl(`/tracks?drive_error=${encodeURIComponent(oauthError)}`),
     );
   }
 
@@ -38,9 +36,7 @@ export async function GET(request: Request) {
 
   const trackSlug = payload.trackSlug as EditableLeaderboardSlug;
   if (!(await assertEditorSession(trackSlug))) {
-    return NextResponse.redirect(
-      new URL(`/tracks/${trackSlug}/admin`, request.url),
-    );
+    return NextResponse.redirect(siteUrl(`/tracks/${trackSlug}/admin`));
   }
 
   try {
@@ -50,14 +46,13 @@ export async function GET(request: Request) {
     const message =
       err instanceof Error ? err.message : "Google Drive connection failed.";
     return NextResponse.redirect(
-      new URL(
+      siteUrl(
         `/tracks/${trackSlug}/admin?drive_error=${encodeURIComponent(message)}`,
-        request.url,
       ),
     );
   }
 
   return NextResponse.redirect(
-    new URL(`/tracks/${trackSlug}/admin?drive=connected`, request.url),
+    siteUrl(`/tracks/${trackSlug}/admin?drive=connected`),
   );
 }

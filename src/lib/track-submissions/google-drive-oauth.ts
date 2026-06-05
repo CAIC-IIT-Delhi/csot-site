@@ -3,6 +3,7 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { google } from "googleapis";
 import type { EditableLeaderboardSlug } from "@/lib/leaderboard-editor/credentials";
+import { getSiteOrigin } from "@/lib/site-origin";
 
 export const GOOGLE_DRIVE_SCOPES = [
   "https://www.googleapis.com/auth/drive.file",
@@ -56,8 +57,8 @@ export function decodeOAuthState(token: string): OAuthState | null {
 export function getGoogleOAuthConfig() {
   const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID?.trim();
   const clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET?.trim();
-  const authUrl = process.env.AUTH_URL?.replace(/\/$/, "");
-  if (!clientId || !clientSecret || !authUrl) {
+  const authUrl = getSiteOrigin();
+  if (!clientId || !clientSecret) {
     return null;
   }
   const redirectUri = `${authUrl}/api/track-admin/google-drive/callback`;

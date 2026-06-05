@@ -8,6 +8,7 @@ import {
   buildGoogleDriveAuthUrl,
   getGoogleOAuthConfig,
 } from "@/lib/track-submissions/google-drive-oauth";
+import { siteUrl } from "@/lib/site-origin";
 
 export async function GET(
   request: Request,
@@ -20,9 +21,7 @@ export async function GET(
 
   const trackSlug = slug as EditableLeaderboardSlug;
   if (!(await assertEditorSession(trackSlug))) {
-    return NextResponse.redirect(
-      new URL(`/tracks/${trackSlug}/admin`, request.url),
-    );
+    return NextResponse.redirect(siteUrl(`/tracks/${trackSlug}/admin`));
   }
 
   if (!getGoogleOAuthConfig()) {
