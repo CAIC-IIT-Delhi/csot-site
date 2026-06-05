@@ -4,11 +4,15 @@ import { auth } from "@/auth";
 const NEEDS_AUTH = (pathname: string) =>
   pathname.startsWith("/dashboard") ||
   pathname.startsWith("/onboarding") ||
-  /^\/tracks\/[^/]+\/register/.test(pathname);
+  /^\/tracks\/[^/]+\/register/.test(pathname) ||
+  /^\/tracks\/[^/]+\/week\/\d+\/submit/.test(pathname) ||
+  /^\/tracks\/[^/]+\/week-\d+\/submit/.test(pathname);
 
 const NEEDS_ONBOARDING = (pathname: string) =>
   pathname.startsWith("/dashboard") ||
-  /^\/tracks\/[^/]+\/register/.test(pathname);
+  /^\/tracks\/[^/]+\/register/.test(pathname) ||
+  /^\/tracks\/[^/]+\/week\/\d+\/submit/.test(pathname) ||
+  /^\/tracks\/[^/]+\/week-\d+\/submit/.test(pathname);
 
 export default auth((req) => {
   const { pathname, search } = req.nextUrl;
@@ -38,6 +42,8 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/tracks/:slug/register/:path*",
+    "/tracks/:slug/week/:week/submit",
+    "/tracks/:slug/week-1/submit",
     "/onboarding/:path*",
   ],
 };

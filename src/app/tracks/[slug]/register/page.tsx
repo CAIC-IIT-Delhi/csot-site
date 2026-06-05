@@ -7,6 +7,8 @@ import { RegistrationForm } from "@/components/registration-form";
 import { WithdrawButton } from "@/components/withdraw-button";
 import { ClubLogoStack } from "@/components/club-logo";
 import { getTrack, formatTrackStartDate } from "@/lib/tracks";
+import { getOpenSubmissionWeeks } from "@/lib/track-submissions/weeks";
+import { submissionWeekPath } from "@/lib/track-submissions/paths";
 import { getSupabase } from "@/lib/supabase/server";
 
 type Props = {
@@ -66,6 +68,10 @@ export default async function TrackRegisterPage({ params }: Props) {
   const profileLocked = (registrationCount ?? 0) > 0;
 
   const registrationOpen = track.status === "open";
+
+  const openSubmissionWeeks = existing
+    ? await getOpenSubmissionWeeks(track.slug)
+    : [];
 
   const userProfile = {
     name: session.user.name ?? "",
@@ -190,6 +196,15 @@ export default async function TrackRegisterPage({ params }: Props) {
                         WhatsApp soon
                       </span>
                     )}
+                    {openSubmissionWeeks.map((w) => (
+                      <Link
+                        key={w.week}
+                        href={submissionWeekPath(track.slug, w.week)}
+                        className="inline-flex h-11 items-center justify-center rounded-full border border-accent px-5 text-meta font-medium uppercase tracking-[0.14em] text-accent-deep transition-colors hover:bg-accent-soft"
+                      >
+                        Submit Week {w.week}
+                      </Link>
+                    ))}
                   </div>
                   {!track.trackUrl && (
                     <p className="mt-3 text-meta text-warn">

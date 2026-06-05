@@ -1,10 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
+const CREDENTIALS_TXT = join(root, "leaderboard-editor-credentials.txt");
+
+const SITE_URL = "https://csot.devclub.in";
 
 /** Must match EDITABLE_LEADERBOARD_SLUGS in credentials.ts */
 const SLUGS = [
@@ -39,9 +42,35 @@ function randomPassword(length = 16) {
   return out;
 }
 
+/** Reuse passwords from the existing plaintext file when present. */
+function loadExistingPasswords() {
+  if (!existsSync(CREDENTIALS_TXT)) return new Map();
+
+  const text = readFileSync(CREDENTIALS_TXT, "utf8");
+  const map = new Map();
+  let currentSlug = null;
+
+  for (const line of text.split("\n")) {
+    const slugMatch = line.match(/^([a-z0-9-]+)$/);
+    if (slugMatch && SLUGS.includes(slugMatch[1])) {
+      currentSlug = slugMatch[1];
+      continue;
+    }
+    const passwordMatch = line.match(/^\s*Password:\s*(.+)$/);
+    if (currentSlug && passwordMatch) {
+      map.set(currentSlug, passwordMatch[1].trim());
+      currentSlug = null;
+    }
+  }
+
+  return map;
+}
+
+const existingPasswords = loadExistingPasswords();
+
 const records = SLUGS.map((slug) => {
   const username = `csot-${slug}`;
-  const password = randomPassword();
+  const password = existingPasswords.get(slug) ?? randomPassword();
   const passwordHash = hashPassword(slug, password);
   return { slug, username, password, passwordHash };
 });
@@ -109,22 +138,22 @@ export function getEditorUsername(slug: EditableLeaderboardSlug): string {
 }
 `;
 
-const txt = `# CSoT'26 leaderboard editor credentials
+const txt = `# CSoT'26 track admin credentials (leaderboard + submission forms)
 # Generated: ${new Date().toISOString()}
-# Share each block with the matching track lead. Edit URL: https://csot.devclub.in/tracks/<slug>/leaderboard/edit
-# Regenerate: node scripts/generate-leaderboard-credentials.mjs
+# Share each block with the matching track lead. Admin URL: https://csot.devclub.in/tracks/<slug>/admin
+# Regenerate (preserves passwords): node scripts/generate-leaderboard-credentials.mjs
 # DO NOT COMMIT — listed in .gitignore
 
 ${records
   .map(
     (r) =>
-      `${r.slug}\n  URL: /tracks/${r.slug}/leaderboard/edit\n  Username: ${r.username}\n  Password: ${r.password}\n`,
+      `${r.slug}\n  URL: ${SITE_URL}/tracks/${r.slug}/admin\n  Username: ${r.username}\n  Password: ${r.password}\n`,
   )
   .join("\n")}
 `;
 
 writeFileSync(join(root, "src/lib/leaderboard-editor/credentials.ts"), credentialsTs);
-writeFileSync(join(root, "leaderboard-editor-credentials.txt"), txt);
+writeFileSync(CREDENTIALS_TXT, txt);
 
 console.log("Wrote src/lib/leaderboard-editor/credentials.ts");
 console.log("Wrote leaderboard-editor-credentials.txt");

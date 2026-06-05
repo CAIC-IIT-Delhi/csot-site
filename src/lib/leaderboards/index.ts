@@ -41,6 +41,7 @@ function normalise(entries: LeaderboardEntry[]): LeaderboardEntry[] {
       rank: entry.rank ?? i + 1,
       name: entry.name.trim() || "—",
       hostel: entry.hostel.trim() || "—",
+      ...(entry.points !== undefined ? { points: entry.points } : {}),
     }));
 }
 
@@ -63,10 +64,16 @@ export async function getLeaderboard(slug: string): Promise<LeaderboardResult> {
   }
 
   try {
-    const raw =
-      source.kind === "db"
-        ? await fetchDbLeaderboard(slug)
-        : await source.fetch();
+    if (source.kind === "db") {
+      const { entries: raw, usesPoints } = await fetchDbLeaderboard(slug);
+      return {
+        status: "live",
+        entries: normalise(raw),
+        usesPoints,
+        fetchedAt: new Date().toISOString(),
+      };
+    }
+    const raw = await source.fetch();
     return {
       status: "live",
       entries: normalise(raw),

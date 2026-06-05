@@ -4,6 +4,8 @@ import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { getSupabase } from "@/lib/supabase/server";
 import { getTrack, listTracks } from "@/lib/tracks";
+import { getOpenSubmissionWeeks } from "@/lib/track-submissions/weeks";
+import { submissionWeekPath } from "@/lib/track-submissions/paths";
 
 export const dynamic = "force-dynamic";
 
@@ -29,10 +31,16 @@ export default async function DashboardPage() {
     .eq("user_id", session.user.id)
     .order("created_at", { ascending: true });
 
-  const registrations = (rows ?? []).map((r) => {
-    const track = getTrack(r.track_slug);
-    return { ...r, track };
-  });
+  const registrations = await Promise.all(
+    (rows ?? []).map(async (r) => {
+      const track = getTrack(r.track_slug);
+      const openWeeks =
+        track?.status === "open"
+          ? await getOpenSubmissionWeeks(r.track_slug)
+          : [];
+      return { ...r, track, openWeeks };
+    }),
+  );
 
   const openTracks = listTracks().filter((t) => t.status === "open");
   const remaining = openTracks.filter(
@@ -139,6 +147,15 @@ export default async function DashboardPage() {
                           WhatsApp soon
                         </span>
                       )}
+                      {r.openWeeks.map((w) => (
+                        <Link
+                          key={w.week}
+                          href={submissionWeekPath(r.track_slug, w.week)}
+                          className="text-meta uppercase tracking-[0.14em] text-accent-deep underline-offset-4 hover:underline"
+                        >
+                          Week {w.week} submit
+                        </Link>
+                      ))}
                     </div>
                   </li>
                 ))}

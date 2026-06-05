@@ -19,6 +19,7 @@
 .env*
 !.env.example
 leaderboard-editor-credentials.txt
+csot-registrations-export.csv
 *.pem
 
 # ----- supabase local dev -----

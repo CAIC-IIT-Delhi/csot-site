@@ -63,11 +63,17 @@ const leaderboardEditorRow = z.object({
     .trim()
     .min(1, "Entry number is required")
     .max(32, "Entry number is too long"),
+  points: z
+    .number({ message: "Points must be a number" })
+    .finite()
+    .nullable()
+    .optional(),
 });
 
 export const leaderboardEditorSaveInput = z
   .object({
     trackSlug: z.string().min(1),
+    usesPoints: z.boolean(),
     rows: z.array(leaderboardEditorRow).max(500),
   })
   .superRefine((data, ctx) => {
@@ -89,3 +95,14 @@ export const leaderboardEditorSaveInput = z
 export type LeaderboardEditorSaveInput = z.infer<
   typeof leaderboardEditorSaveInput
 >;
+
+export {
+  trackSubmissionWeekAdminInput,
+  trackWeekSubmissionInput,
+  mlAstronomyWeek1SubmissionInput,
+  validateSubmissionResponses,
+  parseAdminSubmissionFields,
+  type TrackSubmissionWeekAdminInput,
+  type TrackWeekSubmissionInput,
+  type MlAstronomyWeek1SubmissionInput,
+} from "@/lib/track-submissions/validate";

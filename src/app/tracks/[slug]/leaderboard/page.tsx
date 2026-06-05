@@ -75,6 +75,7 @@ export default async function TrackLeaderboardPage({ params }: Props) {
             ) : (
               <LeaderboardTable
                 entries={board.entries}
+                usesPoints={board.usesPoints}
                 fetchedAt={board.fetchedAt}
               />
             )}
@@ -118,15 +119,26 @@ function EmptyPanel() {
 
 function LeaderboardTable({
   entries,
+  usesPoints,
   fetchedAt,
 }: {
-  entries: { rank: number; name: string; hostel: string }[];
+  entries: { rank: number; name: string; hostel: string; points?: number | null }[];
+  usesPoints?: boolean;
   fetchedAt?: string;
 }) {
+  const gridCols = usesPoints
+    ? "grid-cols-[auto_1fr_auto_auto]"
+    : "grid-cols-[auto_1fr_auto]";
+
   return (
     <div>
       <div className="border-y border-rule">
-        <div className="grid grid-cols-[auto_1fr_auto] items-baseline gap-x-6 border-b border-rule px-1 py-3">
+        <div
+          className={cn(
+            "grid items-baseline gap-x-6 border-b border-rule px-1 py-3",
+            gridCols,
+          )}
+        >
           <span className="font-mono text-meta uppercase tracking-[0.16em] text-ink-soft">
             Rank
           </span>
@@ -136,15 +148,21 @@ function LeaderboardTable({
           <span className="font-mono text-meta uppercase tracking-[0.16em] text-ink-soft">
             Hostel
           </span>
+          {usesPoints && (
+            <span className="font-mono text-meta uppercase tracking-[0.16em] text-ink-soft">
+              Points
+            </span>
+          )}
         </div>
         <ul>
-          {entries.map((entry) => {
+          {entries.map((entry, index) => {
             const isTop = entry.rank <= 3;
             return (
               <li
-                key={`${entry.rank}-${entry.name}`}
+                key={`${entry.rank}-${entry.name}-${index}`}
                 className={cn(
-                  "grid grid-cols-[auto_1fr_auto] items-baseline gap-x-6 border-b border-rule/70 px-1 py-4 last:border-b-0",
+                  "grid items-baseline gap-x-6 border-b border-rule/70 px-1 py-4 last:border-b-0",
+                  gridCols,
                   isTop && "border-l-2 border-l-accent-deep pl-3",
                 )}
               >
@@ -160,6 +178,13 @@ function LeaderboardTable({
                 <span className="font-mono text-meta uppercase tracking-[0.14em] text-ink-soft">
                   {entry.hostel}
                 </span>
+                {usesPoints && (
+                  <span className="serif tabular-nums text-body text-ink">
+                    {entry.points != null && Number.isFinite(entry.points)
+                      ? entry.points
+                      : "—"}
+                  </span>
+                )}
               </li>
             );
           })}

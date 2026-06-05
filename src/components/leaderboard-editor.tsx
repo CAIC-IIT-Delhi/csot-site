@@ -19,6 +19,9 @@ type Props = {
   track: Track;
   authenticated: boolean;
   initialRows: EditorRow[];
+  initialUsesPoints: boolean;
+  /** When true, login is handled by a parent (e.g. track admin). */
+  embedded?: boolean;
 };
 
 function nextKey() {
@@ -33,14 +36,25 @@ export function LeaderboardEditor({
   track,
   authenticated: initialAuthenticated,
   initialRows,
+  initialUsesPoints,
+  embedded = false,
 }: Props) {
   const router = useRouter();
   const promptedRef = useRef(false);
   const [authenticated, setAuthenticated] = useState(initialAuthenticated);
+  const [usesPoints, setUsesPoints] = useState(initialUsesPoints);
   const [rows, setRows] = useState<LocalRow[]>(() => toLocalRows(initialRows));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [loginMessage, setLoginMessage] = useState<string>();
+
+  const applyLoaded = useCallback(
+    (loaded: { rows: EditorRow[]; usesPoints: boolean }) => {
+      setUsesPoints(loaded.usesPoints);
+      setRows(toLocalRows(loaded.rows));
+    },
+    [],
+  );
 
   const handleSignIn = useCallback(async () => {
     const username = window.prompt("Username");
@@ -63,14 +77,15 @@ export function LeaderboardEditor({
     setLoginMessage(undefined);
     const loaded = await loadLeaderboardForEdit(track.slug);
     if (loaded.ok) {
-      setRows(toLocalRows(loaded.rows));
+      applyLoaded(loaded);
     }
     router.refresh();
-  }, [track.slug, router]);
+  }, [applyLoaded, track.slug, router]);
 
   async function handleSignOut() {
     await logoutLeaderboardEditor();
     setAuthenticated(false);
+    setUsesPoints(false);
     setRows([]);
     setLoginMessage("Signed out.");
     router.refresh();
@@ -81,9 +96,11 @@ export function LeaderboardEditor({
     setError(undefined);
     const result = await saveLeaderboardForEdit({
       trackSlug: track.slug,
+      usesPoints,
       rows: rows.map((r) => ({
         rank: r.rank,
         entryNumber: r.entryNumber,
+        points: usesPoints ? r.points : null,
       })),
     });
     setSaving(false);
@@ -93,18 +110,25 @@ export function LeaderboardEditor({
     }
     const loaded = await loadLeaderboardForEdit(track.slug);
     if (loaded.ok) {
-      setRows(toLocalRows(loaded.rows));
+      applyLoaded(loaded);
     }
     router.refresh();
   }
 
   useEffect(() => {
-    if (initialAuthenticated || promptedRef.current) return;
+    if (embedded || initialAuthenticated || promptedRef.current) return;
     promptedRef.current = true;
     void handleSignIn();
-  }, [initialAuthenticated, handleSignIn]);
+  }, [embedded, initialAuthenticated, handleSignIn]);
 
   if (!authenticated) {
+    if (embedded) {
+      return (
+        <p className="text-body text-ink-soft">
+          Sign in above to edit the leaderboard.
+        </p>
+      );
+    }
     return (
       <div className="border border-rule bg-paper/60 p-8">
         <p className="font-mono text-meta uppercase tracking-[0.16em] text-ink-soft">
@@ -135,8 +159,10 @@ export function LeaderboardEditor({
   return (
     <EditorTable
       rows={rows}
+      usesPoints={usesPoints}
       saving={saving}
       error={error}
+      onUsesPointsChange={setUsesPoints}
       onChange={setRows}
       onSave={() => void handleSave()}
       onSignOut={() => void handleSignOut()}
@@ -146,19 +172,27 @@ export function LeaderboardEditor({
 
 function EditorTable({
   rows,
+  usesPoints,
   saving,
   error,
+  onUsesPointsChange,
   onChange,
   onSave,
   onSignOut,
 }: {
   rows: LocalRow[];
+  usesPoints: boolean;
   saving: boolean;
   error?: string;
+  onUsesPointsChange: (value: boolean) => void;
   onChange: (rows: LocalRow[]) => void;
   onSave: () => void;
   onSignOut: () => void;
 }) {
+  const gridCols = usesPoints
+    ? "grid-cols-[4rem_1fr_1fr_1fr_5rem_auto]"
+    : "grid-cols-[4rem_1fr_1fr_1fr_auto]";
+
   function updateRow(key: string, patch: Partial<LocalRow>) {
     onChange(
       rows.map((r) => {
@@ -190,14 +224,32 @@ function EditorTable({
         entryNumber: "",
         name: "—",
         hostel: "—",
+        points: null,
       },
     ]);
   }
 
   return (
     <div>
+      <label className="mb-6 flex cursor-pointer items-center gap-3">
+        <input
+          type="checkbox"
+          checked={usesPoints}
+          onChange={(e) => onUsesPointsChange(e.target.checked)}
+          className="size-4 accent-accent-deep"
+        />
+        <span className="text-body text-ink">
+          Include a <span className="font-mono text-meta uppercase tracking-[0.12em]">Points</span> column on the public leaderboard
+        </span>
+      </label>
+
       <div className="overflow-x-auto border-y border-rule">
-        <div className="grid min-w-[640px] grid-cols-[4rem_1fr_1fr_1fr_auto] items-baseline gap-x-4 border-b border-rule px-1 py-3">
+        <div
+          className={cn(
+            "grid min-w-[640px] items-baseline gap-x-4 border-b border-rule px-1 py-3",
+            gridCols,
+          )}
+        >
           <span className="font-mono text-meta uppercase tracking-[0.16em] text-ink-soft">
             Rank
           </span>
@@ -210,6 +262,11 @@ function EditorTable({
           <span className="font-mono text-meta uppercase tracking-[0.16em] text-ink-soft">
             Hostel
           </span>
+          {usesPoints && (
+            <span className="font-mono text-meta uppercase tracking-[0.16em] text-ink-soft">
+              Points
+            </span>
+          )}
           <span className="sr-only">Remove</span>
         </div>
         <ul className="min-w-[640px]">
@@ -221,7 +278,10 @@ function EditorTable({
             rows.map((row) => (
               <li
                 key={row.key}
-                className="grid grid-cols-[4rem_1fr_1fr_1fr_auto] items-center gap-x-4 border-b border-rule/70 px-1 py-3 last:border-b-0"
+                className={cn(
+                  "grid items-center gap-x-4 border-b border-rule/70 px-1 py-3 last:border-b-0",
+                  gridCols,
+                )}
               >
                 <input
                   type="number"
@@ -249,6 +309,22 @@ function EditorTable({
                 <span className="font-mono text-meta uppercase tracking-[0.14em] text-ink-soft">
                   {row.hostel}
                 </span>
+                {usesPoints && (
+                  <input
+                    type="number"
+                    step="any"
+                    value={row.points ?? ""}
+                    placeholder="0"
+                    onChange={(e) => {
+                      const raw = e.target.value.trim();
+                      updateRow(row.key, {
+                        points:
+                          raw === "" ? null : Number.parseFloat(raw),
+                      });
+                    }}
+                    className="w-full border border-rule bg-cream px-2 py-2 text-body tabular-nums text-ink"
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => removeRow(row.key)}
@@ -270,7 +346,7 @@ function EditorTable({
 
       <p className="mt-4 text-meta text-ink-soft">
         Name and hostel are pulled from csot.devclub.in registrations after you
-        save.
+        save. Toggle points only if your track scores participants numerically.
       </p>
 
       <div className="mt-8 flex flex-wrap items-center gap-4">

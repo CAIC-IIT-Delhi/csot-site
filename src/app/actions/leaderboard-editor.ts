@@ -11,6 +11,10 @@ import {
   resolveUsersByEntry,
 } from "@/lib/leaderboard-editor/resolve-users";
 import {
+  getLeaderboardUsesPoints,
+  upsertLeaderboardUsesPoints,
+} from "@/lib/leaderboard-editor/settings";
+import {
   assertEditorSession,
   clearEditorSession,
   getEditorSessionSlug,
@@ -28,6 +32,7 @@ export type EditorRow = {
   entryNumber: string;
   name: string;
   hostel: string;
+  points: number | null;
 };
 
 function slugOrError(slug: string): EditableLeaderboardSlug | null {
@@ -66,7 +71,10 @@ export async function logoutLeaderboardEditor(): Promise<ActionResult> {
 
 export async function loadLeaderboardForEdit(
   slug: string,
-): Promise<{ ok: true; rows: EditorRow[] } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; rows: EditorRow[]; usesPoints: boolean }
+  | { ok: false; error: string }
+> {
   const valid = slugOrError(slug);
   if (!valid) {
     return { ok: false, error: "This track does not have a leaderboard editor." };
@@ -76,12 +84,16 @@ export async function loadLeaderboardForEdit(
   }
 
   const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from("csot_leaderboard_entries")
-    .select("rank, entry_number")
-    .eq("track_slug", valid)
-    .order("rank", { ascending: true });
+  const [usesPoints, entriesResult] = await Promise.all([
+    getLeaderboardUsesPoints(valid),
+    supabase
+      .from("csot_leaderboard_entries")
+      .select("rank, entry_number, points")
+      .eq("track_slug", valid)
+      .order("rank", { ascending: true }),
+  ]);
 
+  const { data, error } = entriesResult;
   if (error) {
     return { ok: false, error: "Could not load leaderboard." };
   }
@@ -93,14 +105,21 @@ export async function loadLeaderboardForEdit(
 
   return {
     ok: true,
+    usesPoints,
     rows: rows.map((r) => {
       const entryNumber = (r.entry_number as string).trim().toUpperCase();
       const resolved = lookupResolved(users, entryNumber);
+      const rawPoints = r.points as number | string | null;
+      const points =
+        rawPoints === null || rawPoints === undefined
+          ? null
+          : Number(rawPoints);
       return {
         rank: r.rank as number,
         entryNumber,
         name: resolved.name,
         hostel: resolved.hostel,
+        points: Number.isFinite(points) ? points : null,
       };
     }),
   };
@@ -108,7 +127,8 @@ export async function loadLeaderboardForEdit(
 
 export async function saveLeaderboardForEdit(raw: {
   trackSlug: string;
-  rows: { rank: number; entryNumber: string }[];
+  usesPoints: boolean;
+  rows: { rank: number; entryNumber: string; points?: number | null }[];
 }): Promise<ActionResult> {
   const valid = slugOrError(raw.trackSlug);
   if (!valid) {
@@ -136,9 +156,16 @@ export async function saveLeaderboardForEdit(raw: {
     track_slug: valid,
     rank: r.rank,
     entry_number: r.entryNumber.trim().toUpperCase(),
+    points: parsed.data.usesPoints ? (r.points ?? null) : null,
   }));
 
   const supabase = getSupabase();
+
+  try {
+    await upsertLeaderboardUsesPoints(valid, parsed.data.usesPoints);
+  } catch {
+    return { ok: false, error: "Could not save leaderboard settings." };
+  }
 
   const { error: deleteError } = await supabase
     .from("csot_leaderboard_entries")
@@ -161,6 +188,7 @@ export async function saveLeaderboardForEdit(raw: {
 
   revalidatePath(`/tracks/${valid}/leaderboard`);
   revalidatePath(`/tracks/${valid}/leaderboard/edit`);
+  revalidatePath(`/tracks/${valid}/admin`);
 
   return { ok: true };
 }
